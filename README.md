@@ -1,1 +1,1 @@
-# STM32_FreeRTOS_Task_Creation_Priorities
+# STM32 FreeRTOS Task Creation and Priorities
