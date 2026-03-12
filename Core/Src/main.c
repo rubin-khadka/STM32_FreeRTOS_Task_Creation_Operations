@@ -12,7 +12,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -151,12 +152,13 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI_DIV2;
-  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL16;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -224,6 +226,7 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
@@ -244,10 +247,25 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void Task3_Init(void const *argument)
 {
+  uint8_t index = 0;
   while(1)
   {
     uint8_t data[] = "Hello from Task 3\n";
     HAL_UART_Transmit(&huart1, data, sizeof(data), 500);
+    index++;
+
+    if(index == 3)
+    {
+      uint32_t PreviousWakeTime = osKernelSysTick();
+      osDelayUntil(&PreviousWakeTime, 3000);
+    }
+
+    if(index == 7)
+    {
+      uint8_t data[] = "Terminating Task 2\n";
+      HAL_UART_Transmit(&huart1, data, sizeof(data), 500);
+      osThreadTerminate(Task2Handle);
+    }
     osDelay(3000);
   }
 }
@@ -266,7 +284,7 @@ void StartDefaultTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    uint8_t data[] = "Hello from Default Task\n";
+    uint8_t data[] = "Default Task\n";
     HAL_UART_Transmit(&huart1, data, sizeof(data), 500);
     osDelay(1000);
   }
@@ -283,11 +301,27 @@ void StartDefaultTask(void const * argument)
 void Task2_Init(void const * argument)
 {
   /* USER CODE BEGIN Task2_Init */
+  uint8_t index = 0;
   /* Infinite loop */
   for(;;)
   {
-    uint8_t data[] = "Hello from Task 2\n";
-    HAL_UART_Transmit(&huart1, data, sizeof(data), 500);
+    char data[50];  // Change to char array
+    sprintf(data, "Task 2 , index = %d\n", index++);
+    HAL_UART_Transmit(&huart1, (uint8_t*) data, strlen(data), 500);
+
+    if(index == 4)
+    {
+      uint8_t data[] = "Default Task Suspended\n";
+      HAL_UART_Transmit(&huart1, data, sizeof(data), 500);
+      osThreadSuspend(defaultTaskHandle);
+    }
+
+    if(index == 7)
+    {
+      uint8_t data[] = "Default Task Resumed\n";
+      HAL_UART_Transmit(&huart1, data, sizeof(data), 500);
+      osThreadSuspend(defaultTaskHandle);
+    }
     osDelay(2000);
   }
   /* USER CODE END Task2_Init */
@@ -295,7 +329,7 @@ void Task2_Init(void const * argument)
 
 /**
   * @brief  Period elapsed callback in non blocking mode
-  * @note   This function is called  when TIM1 interrupt took place, inside
+  * @note   This function is called  when TIM2 interrupt took place, inside
   * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
   * a global variable "uwTick" used as application time base.
   * @param  htim : TIM handle
@@ -306,7 +340,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 0 */
 
   /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM1)
+  if (htim->Instance == TIM2)
   {
     HAL_IncTick();
   }
